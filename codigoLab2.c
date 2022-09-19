@@ -40,7 +40,7 @@ ISR ( TIMER0_OVF_vect ){
             }
         break;
       
-        case parpPeaton:
+        case parpPeaton :
 
             if(contadores == 30 || contadores == 60)
             { 
