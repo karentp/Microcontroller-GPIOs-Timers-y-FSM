@@ -54,7 +54,7 @@ ISR ( TIMER0_OVF_vect ){
     }  
 
     
-    if(contadores == d*seg+3)
+    if(contadores  == d*seg+3)
     {
         tiempo++; 
         contadores = 0;
