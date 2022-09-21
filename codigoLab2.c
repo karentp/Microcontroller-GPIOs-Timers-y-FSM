@@ -1,212 +1,218 @@
-//INCLUSION DE BIBLIOTECAS
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-//DECLARACION DE estadoOS
-// FSM
+//estados
+#define pasocarro 0 //auto detenido luz roja
+#define parpCarro 1 //auto detenido luz parpadea
+#define altoCarro 2 //auto en movimiento luz verde
+#define pasoPeaton 3 //peaton en movimiento luz verde
+#define parpPeaton 4 //peaton detenido luz parpadea
+#define altoPeaton 5 //peaton detenido luz roja
 
-#define pasocarro 0
-#define parpCarro 1
-#define altoCarro 2
-#define pasoPeaton 3
-#define parpPeaton 4
-#define altoPeaton 5
-#define zero 0
+//variables globales
 
-
-//uso de variables importantes
-int tiempo = 0;
-int estado = 0;
-int botonPulsado = 0; 
-int contadores = 0; 
-int d = 2;
+int tiempo = 0;     //segundos 
+int botonPulsado = 0;  //toque
+int contadores = 0;     //contador para ciclo
+int d = 2;  
 int seg = 30;
-//Protocolo interrupciones ISR
-
-ISR( INT0_vect ){
-  botonPulsado = 1; 
-}
-
-
-ISR ( TIMER0_OVF_vect ){
-    
-    switch (estado)
-    { 
-        case parpCarro:
-
-            if( contadores == seg || contadores == d*seg )
-            { 
-                PORTB ^= ( 1<< PB0 ); 
-            }
-        break;
-      
-        case parpPeaton :
-
-            if(contadores == 30 || contadores == 60)
-            { 
-                PORTB ^= (1<<PB3);
-            }
-        break;
-      
-        
-        default: 
-        break;
-    }  
-
-    
-    if(contadores  == d*seg+3)
-    {
-        tiempo++; 
-        contadores = 0;
-    }
-    
-    else
-    {
-        contadores++; 
-    }
-}
-
+int estado = 0;
 
 int main(void)
 {
-  DDRB |= ( 1 << PB0 )|( 1 << PB1 )|( 1 << PB2 ) |( 1 << PB3 );
-  
-  PORTB = ( 0<<PB0 )|( 1<<PB1 )|( 0<<PB2 )|( 1<<PB3 ); 
+  //PB3 o PB2 o PB1 o PB0
+  DDRB |= (1 << PB3)|(1 << PB2)|(1 << PB1) |(1 << PB0);
+
+  PORTB = (0 << PB3)|(1 << PB2)|(0 << PB1)|(1 << PB0); 
   
   estado = pasocarro; 
   
+  //inicializa
+
   botonPulsado = 0;
   
   tiempo = 0;
 
-  sei(); //interrupcion global
+  //interrumpe todo 
+  sei(); 
+  
+  GIMSK |= (1 << INT0); 
 
-  GIMSK |= ( 1 << INT0 ); 
-  MCUCR |= ( 1 << ISC00 ); 
-  MCUCR |= ( 1 << ISC01 ); 
+  MCUCR |= (1 << ISC00); 
+  
+  MCUCR |= (1 << ISC01); 
 
-  TCCR0A = 0;
-  TCCR0B = 0;
+  //interrupcion global para el Atiiny85 con timer
+
+  TCCR0A = 0x00; 
+  TCCR0B = 0x00;
 
   TCCR0B |= (1 << CS00) | (1 << CS02); 
   
-  sei (); //interrupcion global
-  
+  sei (); 
+
   TCNT0 = 0; 
-  TIMSK |= ( 1 << TOIE0 ); 
   
+  TIMSK |= (1 << TOIE0); 
+
+  //loop infinito
+
   while (1) 
   {
-    
+    //inicio de estados
     switch (estado){
-    
     case (pasocarro):
+        
         PORTB = (0<<PB3)|(1<<PB2)|(0<<PB1)|(1<<PB0); 
-
+        
         if(botonPulsado == 1)
         {
             if(tiempo >= 10)
             {
-                contadores = 0;
-
+                contadores = 0; 
                 tiempo = 0;
-                
                 estado = parpCarro;
             }
         }
+        
         else
+        
         {
             estado = pasocarro;
         }
-    break;
+        
+        break;
     
     case (parpCarro):
-        if( tiempo >= 3 )
+        
+        if(tiempo >= 3)
         {
             contadores = 0; 
-
             tiempo = 0;
-
             estado = altoCarro;
         }
+        
         else
         {
             estado = parpCarro;
         }
-    break;
+        
+        break;
     
     case (altoCarro):
-        PORTB = ( 0<<PB0 )|(1 << PB1 )|( 1 << PB2)|( 0 << PB3 ); 
-        if ( tiempo >= 1 )
-        {
-            contadores = 0;     
-
-            tiempo = 0;
-            
-            estado = pasoPeaton;
         
+        PORTB = (0<<PB3)|(1<<PB2)|(1<<PB1)|(0<<PB0); 
+        
+        if (tiempo >= 1)
+        {
+            contadores = 0; 
+            tiempo = 0;
+            estado = pasoPeaton;
         }
+        
         else
         {
             estado = altoCarro;
         }
-    break;
+
+        break;
     
     case (pasoPeaton):
-        PORTB = ( 1 << PB0 )|( 0 << PB1 )|( 1 << PB2 )|( 0 << PB3 ); 
+        PORTB = (1<<PB3)|(0<<PB2)|(1<<PB1)|(0<<PB0); 
         if(tiempo >= 10)
         {
             contadores = 0; 
-            
             tiempo = 0;
-            
             estado = parpPeaton;
         }
+        
         else
         {
-        estado = pasoPeaton;
+            estado = pasoPeaton;
         }
-    break;
+
+        break;
 
     case (parpPeaton):
         if(tiempo >= 3)
         {
             contadores = 0; 
-        
             tiempo = 0;
-            
             estado = altoPeaton;
         }
+
         else
         {
             estado = parpPeaton;
         }
-    break;
+        
+        break;
 
     case (altoPeaton):
-        PORTB = ( 0 << PB0 )|( 1 << PB1 )|( 1 << PB2 )|( 0 << PB3 ); 
+        PORTB = (0<<PB3)|(1<<PB2)|(1<<PB1)|(0<<PB0); 
+        
         if(tiempo >= 1)
         {
             contadores = 0; 
-            
             tiempo = 0;
-            
             botonPulsado = 0; 
-            
             estado = pasocarro;
         }
+
         else
         {
             estado = altoPeaton;
         }
-    break;
+
+        break;
 
     default:
         estado = pasocarro; 
-    break;
+        
+        break;
     }
   }
 }
+
+
+    ISR(INT0_vect){
+    botonPulsado = 1; 
+    }
+
+    ISR (TIMER0_OVF_vect)
+    {
+        int aux =d*30;
+        switch (estado){ 
+
+
+            case parpCarro:
+                if(contadores == seg || contadores == aux){ 
+                PORTB ^= (1<<PB0); 
+                }
+                break;
+            
+            case parpPeaton:
+                if(contadores == seg || contadores == aux){ 
+                PORTB ^= (1<<PB3); 
+                }
+                break;
+            
+            default:
+                break;
+            } 
+
+        if(contadores == aux+3)
+        {
+            tiempo++; 
+            contadores = 0;
+        }
+        else
+        {
+            contadores++; 
+        } 
+}
+
+
 
 
 
